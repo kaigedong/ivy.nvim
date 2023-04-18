@@ -44,18 +44,29 @@ error: linker `cc` not found
   = note: No such file or directory (os error 2)
 ```
 
+To configure auto compiling you can use the [`post-merge`](./post-merge.sample)
+git hook to compile the library automatically when you update the package. This
+works well if you are managing your plugins via git. For an example
+installation you can run the following command. **NOTE:** This will overwrite
+any post-merge hooks you have already installed.
+
+```sh
+cp ./post-merge.sample ./.git/hooks/post-merge
+```
+
 ## Features
 
 ### Commands
 
 A command can be run that will launch the completion UI
 
-| Command    | Key Map     | Description                                            |
-| ---------- | ----------- | ------------------------------------------------------ |
-| IvyFd      | \<leader\>p | Find files in your project with the fd cli file finder |
-| IvyAg      | \<leader\>/ | Find content in files using the silver searcher        |
-| IvyBuffers | \<leader\>b | Search though open buffers                             |
-| IvyLines   |             | Search the lines in the current buffer                 |
+| Command            | Key Map     | Description                                                 |
+| ------------------ | ----------- | ----------------------------------------------------------- |
+| IvyFd              | \<leader\>p | Find files in your project with a custom rust file finder   |
+| IvyAg              | \<leader\>/ | Find content in files using the silver searcher             |
+| IvyBuffers         | \<leader\>b | Search though open buffers                                  |
+| IvyLines           |             | Search the lines in the current buffer                      |
+| IvyWorkspaceSymbol |             | Search for workspace symbols using the lsp workspace/symbol |
 
 ### Actions
 
@@ -70,6 +81,41 @@ Action can be run on selected candidates provide functionality
 
 ## API
 
+### ivy.run
+
+The `ivy.run` function is the core function in the plugin, it will launch the
+completion window and display the items from your items function. When the
+users accept one of the candidates with an [action](#actions), it will call the
+callback function to in most cases open the item in the desired location.
+
+```lua
+  ---@param name string
+  ---@param items fun(input: string): { content: string }[] | string
+  ---@param callback fun(result: string, action: string)
+  vim.ivy.run = function(name, items, callback) end
+```
+
+#### Name `string`
+
+The name is the display name for the command and will be the name of the buffer
+in the completion window
+
+#### Items `fun(input: string): { content: string }[] | string`
+
+The items function is a function that will return the candidates to display in
+the completion window. This can return a string where each line will be a
+completion item. Or an array of tables where the `content` will be the
+completion item.
+
+#### Callback `fun(result: string, action: string)`
+
+The function that will run when the user selects a completion item. Generally
+this will open the item in the desired location. For example, in the file
+finder with will open the file in a new buffer. If the user selects the
+vertical split action it will open the buffer in a new `vsplit`
+
+#### Example
+
 ```lua
   vim.ivy.run(
     -- The name given to the results window and displayed to the user
@@ -77,7 +123,13 @@ Action can be run on selected candidates provide functionality
     -- Call back function to get all the candidates that will be displayed in
     -- the results window, The `input` will be passed in, so you can filter
     -- your results with the value from the prompt
-    function(input) return { "One", "Two", Three } end,
+    function(input)
+      return {
+        { content = "One" },
+        { content = "Two" },
+        { content = "Three" },
+      }
+    end,
     -- Action callback that will be called on the completion or peek actions.
     -- The currently selected item is passed in as the result.
     function(result) vim.cmd("edit " .. result) end
